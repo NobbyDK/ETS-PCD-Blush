@@ -47,7 +47,7 @@ class UDPWebcamServer:
         # ----------------------------------------
 
         # --- Blush Settings (dapat diubah via control socket) ---
-        self.blush_color_rgb = (255, 120, 120)  # Pink natural (RGB format)
+        self.blush_color_rgb = (235, 148, 146)  # Pink natural (RGB format)
         self.blush_intensity = 0.25  # Lebih tipis untuk natural look
         self.blush_blur = 15  # Gaussian blur radius untuk softness
         self.lock = threading.Lock()  # Thread safety untuk update settings
