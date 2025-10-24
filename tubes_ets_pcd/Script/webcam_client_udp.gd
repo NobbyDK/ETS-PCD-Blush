@@ -24,7 +24,7 @@ const BLUSH_SHADES = {
 @onready var resolution_label: Label = $InfoPanel/ResolutionLabel
 @onready var data_rate_label: Label = $InfoPanel/DataRateLabel
 @onready var shade_option_button: OptionButton = $ControlPanel/ShadeOptionButton # NEW
-@onready var intensity_slider: HSlider = $ControlPanel/IntensitySlider # NEW
+@onready var intensity_slider: HSlider = $IntensitySlider # NEW
 @onready var intensity_label: Label = $ControlPanel/IntensityLabel
 
 # --- Connection and State Variables ---
@@ -57,27 +57,61 @@ func _ready():
 	# Inisialisasi UDP client
 	udp_client = PacketPeerUDP.new()
 	udp_control_client = PacketPeerUDP.new() # Inisialisasi control client
-	
+
 	# Connect button signals
 	connect_button.pressed.connect(_on_connect_button_pressed)
 	quit_button.pressed.connect(_on_quit_button_pressed)
-	
+
 	# NEW: Connect OptionButton signal and populate shades
 	if is_instance_valid(shade_option_button):
 		shade_option_button.item_selected.connect(_on_shade_option_button_item_selected)
 		_populate_shade_options()
-	
+
+	# Connect Intensity Slider signal
+	if is_instance_valid(intensity_slider):
+		intensity_slider.value_changed.connect(_on_intensity_slider_value_changed)
+		intensity_slider.max_value = 100
+		intensity_slider.min_value = 0
+		intensity_slider.value = 25
+		_update_intensity_label(intensity_slider.value)
+	else:
+		print("❌ Intensity Slider node not found!")
+
 	# Update status
 	update_status("Ready to connect")
 	update_info_display()
-	
+
 	# Show no signal initially
 	no_signal_label.visible = true
-	
-	# Debug info
+
 	print("🎮 Godot UDP client initialized")
 	print("Target server (Video): ", server_host, ":", server_port)
 	print("Target server (Control): ", server_host, ":", control_port)
+
+func _on_intensity_slider_value_changed(value: float):
+	"""Handler ketika nilai slider intensitas berubah"""
+	# Update label
+	_update_intensity_label(value)
+
+	if not is_connected:
+		return
+
+	if intensity_slider.max_value == 0:
+		printerr("Intensity Slider max_value is zero!")
+		return
+
+	var normalized_intensity = value / intensity_slider.max_value
+	var command = "INTENSITY:" + str(normalized_intensity)
+	send_control_command(command)
+	print("📤 Sent control command: ", command)
+
+func _update_intensity_label(value: float):
+	"""Update label yang menunjukkan nilai intensitas"""
+	if is_instance_valid(intensity_label):
+		intensity_label.text = "Intensity: %d%%" % int(value)
+	else:
+		print("❌ Intensity Label node not found!")
+
 
 func _populate_shade_options():
 	"""Memasukkan semua shade blush ke OptionButton"""
@@ -164,11 +198,17 @@ func connect_to_server():
 		if control_error != OK:
 			print("❌ Control UDP setup failed: ", control_error)
 		else:
-			print("🎮 Control UDP client initialized on port ", control_port)
-			# 5. Kirim shade default saat koneksi berhasil
+			print("🎮 Control UDP client ready to send on port ", control_port)
+
+			# 5. Kirim shade default DAN intensitas default saat koneksi berhasil
 			var default_shade_name = shade_option_button.get_item_text(shade_option_button.get_selected_id())
 			var default_rgb = BLUSH_SHADES[default_shade_name]
 			send_control_command("COLOR:" + default_rgb)
+
+			var initial_intensity = intensity_slider.value / intensity_slider.max_value
+			send_control_command("" + str(initial_intensity))
+			print("📤 Sent initial Intensity: ", initial_intensity)
+
 	else:
 		update_status("Registration timeout")
 		print("❌ Registration timeout")
