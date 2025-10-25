@@ -1,13 +1,12 @@
-[gd_scene load_steps=2 format=3 uid="uid://chbapnujwr0bg"]
-
-[ext_resource type="Script" uid="uid://ctaknc7t602po" path="res://webcam_client.gd" id="1"]
+[gd_scene format=3 uid="uid://chbapnujwr0bg"]
 
 [node name="WebcamClient" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-script = ExtResource("1")
+grow_horizontal = 2
+grow_vertical = 2
 
 [node name="Background" type="ColorRect" parent="."]
 layout_mode = 0
