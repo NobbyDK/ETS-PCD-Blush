@@ -38,27 +38,22 @@ class UDPWebcamServer:
         # Performance monitoring
         self.frame_send_time = 1.0 / self.target_fps
 
-        # --- Enhanced CV2 Face Detection (DARI KODE BARU ANDA) ---
+        # --- Enhanced CV2 Face Detection ---
         print("🔄 Loading OpenCV Haar Cascade classifiers...")
         
         try:
             # Load multiple cascades for better detection
-            # PENTING: Kita menggunakan cv2.data.haarcascades
-            # Ini berarti Anda TIDAK PERLU mengunduh file .xml ini
-            # Asumsi OpenCV terinstal dengan benar
             self.face_cascade = cv2.CascadeClassifier(
                 cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
             )
             self.face_cascade_alt = cv2.CascadeClassifier(
                 cv2.data.haarcascades + 'haarcascade_frontalface_alt2.xml'
             )
-            # --- (haarcascade_eye.xml DIHAPUS, diganti LBF) ---
             
             print("✅ OpenCV face detectors initialized successfully")
             
-            # --- BARU: Inisialisasi LBF (DARI KODE LAMA) ---
+            # --- BARU: Inisialisasi LBF ---
             print("🔄 Loading OpenCV LBF Landmark model (.yaml)...")
-            # PASTIKAN FILE 54MB INI ADA DI FOLDER YANG SAMA!
             model_path = "lbfmodel.yaml" 
             self.landmark_detector = cv2.face.createFacemarkLBF()
             self.landmark_detector.loadModel(model_path)
@@ -73,7 +68,7 @@ class UDPWebcamServer:
             print(f"❌ Error loading OpenCV models: {e}")
             raise e
 
-        # --- Temporal Smoothing (DARI KODE BARU ANDA) ---
+        # --- Temporal Smoothing  ---
         self.face_history = deque(maxlen=5)  # Store last 5 face detections
         # (Cheek history dihapus, kita pakai landmark langsung)
         self.last_valid_face = None
@@ -87,7 +82,6 @@ class UDPWebcamServer:
         self.lock = threading.Lock()
 
     def initialize_camera(self):
-        # (Fungsi ini sama persis dengan kode baru Anda)
         print("🎥 Initializing optimized camera...")
         self.camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
@@ -109,7 +103,6 @@ class UDPWebcamServer:
             return False
 
     def smooth_face_detection(self, current_face):
-        # (Fungsi ini sama persis dengan kode baru Anda)
         """
         Smooth face detection using temporal averaging
         """
@@ -137,7 +130,6 @@ class UDPWebcamServer:
         return current_face
 
     def detect_face_robust(self, gray_frame):
-        # (Fungsi ini sama persis dengan kode baru Anda)
         """
         Robust face detection with multiple methods and frame preprocessing
         """
@@ -166,7 +158,7 @@ class UDPWebcamServer:
         
         return None
 
-    # --- BARU: Ditambahkan dari kode LAMA (.yaml) ---
+    # --- (.yaml) ---
     def get_cheek_contour_points(self, face_landmarks_cv2, is_left=True):
         """
         Mendapatkan titik-titik kontur pipi menggunakan 68 landmarks LBF (CV2).
@@ -195,7 +187,7 @@ class UDPWebcamServer:
 
         return np.array(points, dtype=np.int32)
 
-    # --- BARU: Ditambahkan dari kode LAMA (.yaml) ---
+    # --- (.yaml) ---
     def create_smooth_blush_mask(self, frame_shape, points, blur_radius):
         """
         Membuat mask blush yang smooth dengan convex hull (cocok untuk landmarks)
@@ -228,19 +220,18 @@ class UDPWebcamServer:
         """
         output_frame = frame.copy().astype(np.float32)
         
-        # 1. Konversi ke grayscale (DARI KODE BARU)
+        # 1. Konversi ke grayscale 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # 2. Deteksi wajah (DARI KODE BARU)
+        # 2. Deteksi wajah 
         current_face = self.detect_face_robust(gray)
         
-        # 3. Smoothing wajah (DARI KODE BARU)
+        # 3. Smoothing wajah 
         face_rect = self.smooth_face_detection(current_face)
         
         if face_rect is not None:
             h, w, _ = frame.shape
             
-            # --- 4. LOGIKA LBF (DARI KODE LAMA) DIMASUKKAN KE SINI ---
             # LBF .fit() butuh daftar wajah, jadi kita bungkus
             faces_list = np.array([face_rect]) 
             
@@ -263,11 +254,11 @@ class UDPWebcamServer:
                 for face_landmarks_cv2 in landmarks_list:
                     current_face_points = face_landmarks_cv2[0]
 
-                    # 5. Dapatkan titik pipi (DARI KODE LAMA)
+                    # 5. Dapatkan titik pipi
                     left_cheek_points = self.get_cheek_contour_points(current_face_points, is_left=True)
                     right_cheek_points = self.get_cheek_contour_points(current_face_points, is_left=False)
                     
-                    # 6. Buat mask (DARI KODE LAMA)
+                    # 6. Buat mask 
                     left_mask = self.create_smooth_blush_mask(
                         (h, w), left_cheek_points, blur
                     )
@@ -275,7 +266,7 @@ class UDPWebcamServer:
                         (h, w), right_cheek_points, blur
                     )
                     
-                    # 7. Blending (LOGIKA UMUM)
+                    # 7. Blending
                     combined_mask = np.maximum(left_mask, right_mask)
                     combined_mask = combined_mask * intensity
                     
@@ -289,8 +280,6 @@ class UDPWebcamServer:
                         )
             
         return output_frame.astype(np.uint8)
-
-    # --- SISA FUNGSI (NETWORKING) SAMA PERSIS ---
 
     def listen_for_clients(self):
         """ Listens for incoming client messages """
@@ -483,13 +472,12 @@ class UDPWebcamServer:
 
 if __name__ == "__main__":
     print("=== Hybrid CV2 Blush Server (Stable Haar + Precise LBF) ===")
-    # PENTING: Anda perlu opencv-python-contrib untuk cv2.face
     print("📝 Dependencies: pip install opencv-python-contrib scipy numpy")
-    print("⚠️  Pastikan 'lbfmodel.yaml' (versi 54MB) ada di folder!")
+    print("⚠️  Pastikan 'lbfmodel.yaml' ada di folder!")
     print("✨ Features:")
-    print("    - Temporal smoothing for stable tracking (dari kode baru)")
-    print("    - Multi-cascade face detection (dari kode baru)")
-    print("    - LBF Landmark-based cheek positioning (dari kode lama)")
+    print("    - Temporal smoothing for stable tracking")
+    print("    - Multi-cascade face detection")
+    print("    - LBF Landmark-based cheek positioning")
     
     server = UDPWebcamServer()
     try:
