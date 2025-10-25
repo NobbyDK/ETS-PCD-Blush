@@ -1,0 +1,115 @@
+[gd_scene load_steps=10 format=3 uid="uid://b6nsqjpgmsqv"]
+
+[ext_resource type="FontFile" uid="uid://cxyob2lbikg4i" path="res://assets/button/font.tres" id="1_eksng"]
+[ext_resource type="FontFile" uid="uid://droaxvl782oum" path="res://assets/font/Round9x13.ttf" id="1_l5ain"]
+[ext_resource type="Script" path="res://script/button.gd" id="1_y6qtq"]
+[ext_resource type="StyleBox" uid="uid://c7xah5b34bqce" path="res://assets/button/button.tres" id="2_1n7vv"]
+[ext_resource type="Texture2D" uid="uid://byulumnbv56h6" path="res://assets/img/Try-On.png" id="2_sujrv"]
+[ext_resource type="StyleBox" uid="uid://v18js4yllipg" path="res://assets/button/about.tres" id="5_uxmy3"]
+[ext_resource type="StyleBox" uid="uid://d4m8osio2w7ji" path="res://assets/button/tutor.tres" id="7_vttxw"]
+[ext_resource type="StyleBox" uid="uid://c5eoxetuyjtmj" path="res://assets/button/kredit.tres" id="8_e420u"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_mnokf"]
+texture = ExtResource("2_sujrv")
+axis_stretch_horizontal = 2
+axis_stretch_vertical = 2
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_y6qtq")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_mnokf")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_direction = 2
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -146.0
+offset_top = -248.0
+offset_right = 154.0
+offset_bottom = -48.0
+grow_horizontal = 2
+grow_vertical = 0
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="start" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 5
+size_flags_vertical = 7
+theme_override_fonts/font = ExtResource("1_eksng")
+theme_override_font_sizes/font_size = 40
+theme_override_styles/hover = ExtResource("2_1n7vv")
+theme_override_styles/pressed = ExtResource("2_1n7vv")
+theme_override_styles/normal = ExtResource("2_1n7vv")
+text = "Start"
+
+[node name="exit" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 5
+size_flags_vertical = 7
+theme_override_fonts/font = ExtResource("1_eksng")
+theme_override_font_sizes/font_size = 40
+theme_override_styles/hover = ExtResource("2_1n7vv")
+theme_override_styles/pressed = ExtResource("2_1n7vv")
+theme_override_styles/normal = ExtResource("2_1n7vv")
+text = "Exit"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -182.0
+offset_top = 48.0
+offset_right = -22.0
+offset_bottom = 100.0
+grow_horizontal = 0
+theme_override_constants/separation = 10
+
+[node name="about" type="Button" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/hover = ExtResource("5_uxmy3")
+theme_override_styles/pressed = ExtResource("5_uxmy3")
+theme_override_styles/normal = ExtResource("5_uxmy3")
+
+[node name="tutor" type="Button" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.25
+theme_override_fonts/font = ExtResource("1_l5ain")
+theme_override_styles/hover = ExtResource("7_vttxw")
+theme_override_styles/pressed = ExtResource("7_vttxw")
+theme_override_styles/normal = ExtResource("7_vttxw")
+
+[node name="kredit" type="Button" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/hover = ExtResource("8_e420u")
+theme_override_styles/pressed = ExtResource("8_e420u")
+theme_override_styles/normal = ExtResource("8_e420u")
+
+[connection signal="pressed" from="VBoxContainer/start" to="." method="_on_start_pressed"]
+[connection signal="pressed" from="VBoxContainer/exit" to="." method="_on_BtnExit_pressed"]
+[connection signal="pressed" from="HBoxContainer/about" to="." method="_on_about_pressed"]
+[connection signal="pressed" from="HBoxContainer/tutor" to="." method="_on_tutor_pressed"]
+[connection signal="pressed" from="HBoxContainer/kredit" to="." method="_on_kredit_pressed"]

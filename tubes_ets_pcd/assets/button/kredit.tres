@@ -1,0 +1,6 @@
+[gd_resource type="StyleBoxTexture" load_steps=2 format=3 uid="uid://c5eoxetuyjtmj"]
+
+[ext_resource type="Texture2D" uid="uid://cmh77xy4stj32" path="res://assets/img/canva/kredit.png" id="1_wgrlv"]
+
+[resource]
+texture = ExtResource("1_wgrlv")

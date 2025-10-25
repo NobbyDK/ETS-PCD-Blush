@@ -1,0 +1,6 @@
+[gd_resource type="StyleBoxTexture" load_steps=2 format=3 uid="uid://d115vcc446e3h"]
+
+[ext_resource type="Texture2D" uid="uid://b6sl4cy7icii" path="res://assets/img/canva/home button.png" id="1_4e4hg"]
+
+[resource]
+texture = ExtResource("1_4e4hg")

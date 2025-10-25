@@ -1,0 +1,46 @@
+[gd_scene load_steps=7 format=3 uid="uid://b6n28s5o0q4xy"]
+
+[ext_resource type="Script" path="res://script/button.gd" id="1_cbool"]
+[ext_resource type="Texture2D" uid="uid://cgdwbh1asmygc" path="res://assets/img/canva/about (app).png" id="1_tif7a"]
+[ext_resource type="Texture2D" uid="uid://b6sl4cy7icii" path="res://assets/img/canva/home button.png" id="2_13yiw"]
+[ext_resource type="StyleBox" uid="uid://d115vcc446e3h" path="res://assets/button/home.tres" id="3_qsi40"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_n7r55"]
+texture = ExtResource("1_tif7a")
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ufycs"]
+texture = ExtResource("2_13yiw")
+
+[node name="Kredit" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_cbool")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_n7r55")
+
+[node name="home" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -1132.0
+offset_top = 20.0
+offset_right = -1072.0
+offset_bottom = 80.0
+grow_horizontal = 0
+theme_override_styles/hover = ExtResource("3_qsi40")
+theme_override_styles/pressed = ExtResource("3_qsi40")
+theme_override_styles/normal = SubResource("StyleBoxTexture_ufycs")
+
+[connection signal="pressed" from="home" to="." method="_on_home_pressed"]
