@@ -131,7 +131,7 @@ class UDPWebcamServer:
 
     def detect_face_robust(self, gray_frame):
         """
-        Robust face detection with multiple methods and frame preprocessing
+        Robust face detection with multiple methods - RETURNS ALL FACES
         """
         gray_eq = cv2.equalizeHist(gray_frame)
         gray_blur = cv2.GaussianBlur(gray_eq, (5, 5), 0)
@@ -153,11 +153,12 @@ class UDPWebcamServer:
             )
         
         if len(faces) > 0:
+            # Sort by size (largest first) but return ALL faces
             faces_sorted = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
-            return faces_sorted[0] # Return (x, y, w, h)
+            return faces_sorted  # Return list of all faces
         
         return None
-
+    
     # --- (.yaml) ---
     def get_cheek_contour_points(self, face_landmarks_cv2, is_left=True):
         """
@@ -213,52 +214,49 @@ class UDPWebcamServer:
 
     def apply_blush(self, frame):
         """
-        FUNGSI GABUNGAN:
-        1. Deteksi wajah stabil (Haar)
-        2. Deteksi landmark presisi (LBF)
-        3. Aplikasi blush
+        FUNGSI GABUNGAN - MULTI FACE VERSION:
+        1. Deteksi SEMUA wajah stabil (Haar)
+        2. Deteksi landmark presisi (LBF) untuk setiap wajah
+        3. Aplikasi blush pada semua wajah
         """
         output_frame = frame.copy().astype(np.float32)
         
         # 1. Konversi ke grayscale 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # 2. Deteksi wajah 
-        current_face = self.detect_face_robust(gray)
+        # 2. Deteksi SEMUA wajah 
+        all_faces = self.detect_face_robust(gray)
         
-        # 3. Smoothing wajah 
-        face_rect = self.smooth_face_detection(current_face)
-        
-        if face_rect is not None:
+        if all_faces is not None and len(all_faces) > 0:
             h, w, _ = frame.shape
             
-            # LBF .fit() butuh daftar wajah, jadi kita bungkus
-            faces_list = np.array([face_rect]) 
+            # Get current settings
+            with self.lock:
+                color_rgb = self.blush_color_rgb
+                intensity = self.blush_intensity
+                blur = self.blush_blur
+            
+            color_bgr = (color_rgb[2], color_rgb[1], color_rgb[0])
+            
+            # LBF .fit() needs face list as numpy array
+            faces_array = np.array(all_faces)
             
             try:
-                ok, landmarks_list = self.landmark_detector.fit(gray, faces_list)
+                ok, landmarks_list = self.landmark_detector.fit(gray, faces_array)
             except cv2.error as e:
                 # Gagal fit, kembalikan frame asli
                 return frame
             
             if ok and landmarks_list is not None:
-                # Get current settings
-                with self.lock:
-                    color_rgb = self.blush_color_rgb
-                    intensity = self.blush_intensity
-                    blur = self.blush_blur
-                
-                color_bgr = (color_rgb[2], color_rgb[1], color_rgb[0])
-
-                # Proses landmark untuk wajah yang terdeteksi
+                # Proses SETIAP wajah yang terdeteksi
                 for face_landmarks_cv2 in landmarks_list:
                     current_face_points = face_landmarks_cv2[0]
 
-                    # 5. Dapatkan titik pipi
+                    # 5. Dapatkan titik pipi untuk wajah ini
                     left_cheek_points = self.get_cheek_contour_points(current_face_points, is_left=True)
                     right_cheek_points = self.get_cheek_contour_points(current_face_points, is_left=False)
                     
-                    # 6. Buat mask 
+                    # 6. Buat mask untuk wajah ini
                     left_mask = self.create_smooth_blush_mask(
                         (h, w), left_cheek_points, blur
                     )
@@ -266,7 +264,7 @@ class UDPWebcamServer:
                         (h, w), right_cheek_points, blur
                     )
                     
-                    # 7. Blending
+                    # 7. Blending untuk wajah ini
                     combined_mask = np.maximum(left_mask, right_mask)
                     combined_mask = combined_mask * intensity
                     
