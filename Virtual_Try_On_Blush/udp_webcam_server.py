@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-UDP Webcam Server - Enhanced Blush On with Multi-face Detection
+UDP Webcam Server - Enhanced Blush On with Stable CV2 Detection
+VERSI GABUNGAN:
+- Deteksi Wajah Stabil (Haar Cascade + Temporal Smoothing)
+- Deteksi Landmark Presisi (LBF .yaml)
 """
 
 import cv2
@@ -10,9 +13,8 @@ import threading
 import time
 import math
 import numpy as np
-import mediapipe as mp
-from scipy.interpolate import splprep, splev
 from scipy.ndimage import gaussian_filter
+from collections import deque
 
 class UDPWebcamServer:
     def __init__(self, host='127.0.0.1', port=8888, control_port=8889):
@@ -36,24 +38,56 @@ class UDPWebcamServer:
         # Performance monitoring
         self.frame_send_time = 1.0 / self.target_fps
 
-        # --- Inisialisasi Mediapipe Face Mesh ---
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            max_num_faces=5,  # Support multiple faces
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5)
-        self.mp_drawing = mp.solutions.drawing_utils
-        # ----------------------------------------
+        # --- Enhanced CV2 Face Detection (DARI KODE BARU ANDA) ---
+        print("🔄 Loading OpenCV Haar Cascade classifiers...")
+        
+        try:
+            # Load multiple cascades for better detection
+            # PENTING: Kita menggunakan cv2.data.haarcascades
+            # Ini berarti Anda TIDAK PERLU mengunduh file .xml ini
+            # Asumsi OpenCV terinstal dengan benar
+            self.face_cascade = cv2.CascadeClassifier(
+                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            )
+            self.face_cascade_alt = cv2.CascadeClassifier(
+                cv2.data.haarcascades + 'haarcascade_frontalface_alt2.xml'
+            )
+            # --- (haarcascade_eye.xml DIHAPUS, diganti LBF) ---
+            
+            print("✅ OpenCV face detectors initialized successfully")
+            
+            # --- BARU: Inisialisasi LBF (DARI KODE LAMA) ---
+            print("🔄 Loading OpenCV LBF Landmark model (.yaml)...")
+            # PASTIKAN FILE 54MB INI ADA DI FOLDER YANG SAMA!
+            model_path = "lbfmodel.yaml" 
+            self.landmark_detector = cv2.face.createFacemarkLBF()
+            self.landmark_detector.loadModel(model_path)
+            print(f"✅ LBF model '{model_path}' loaded successfully.")
 
-        # --- Blush Settings (dapat diubah via control socket) ---
-        self.blush_color_rgb = (235, 148, 146)  # Pink natural (RGB format)
-        self.blush_intensity = 0.25  # Lebih tipis untuk natural look
-        self.blush_blur = 15  # Gaussian blur radius untuk softness
-        self.lock = threading.Lock()  # Thread safety untuk update settings
-        # ---------------------------------------------------------
+        except cv2.error as e:
+            print(f"❌ FATAL ERROR: Gagal memuat model 'lbfmodel.yaml'.")
+            print("Pastikan Anda menggunakan file 68-point yang berukuran ~54MB.")
+            print(f"OpenCV Error: {e}")
+            exit()
+        except Exception as e:
+            print(f"❌ Error loading OpenCV models: {e}")
+            raise e
+
+        # --- Temporal Smoothing (DARI KODE BARU ANDA) ---
+        self.face_history = deque(maxlen=5)  # Store last 5 face detections
+        # (Cheek history dihapus, kita pakai landmark langsung)
+        self.last_valid_face = None
+        self.frames_without_detection = 0
+        self.max_frames_without_detection = 10
+        
+        # --- Blush Settings ---
+        self.blush_color_rgb = (235, 148, 146)
+        self.blush_intensity = 0.25
+        self.blush_blur = 15
+        self.lock = threading.Lock()
 
     def initialize_camera(self):
+        # (Fungsi ini sama persis dengan kode baru Anda)
         print("🎥 Initializing optimized camera...")
         self.camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
@@ -61,6 +95,10 @@ class UDPWebcamServer:
             self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
             self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
             self.camera.set(cv2.CAP_PROP_FPS, self.target_fps)
+            
+            self.camera.set(cv2.CAP_PROP_AUTOFOCUS, 1)
+            self.camera.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+            
             actual_width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
             actual_height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
             actual_fps = self.camera.get(cv2.CAP_PROP_FPS)
@@ -69,6 +107,190 @@ class UDPWebcamServer:
         else:
             print("❌ Failed to initialize camera")
             return False
+
+    def smooth_face_detection(self, current_face):
+        # (Fungsi ini sama persis dengan kode baru Anda)
+        """
+        Smooth face detection using temporal averaging
+        """
+        if current_face is None:
+            self.frames_without_detection += 1
+            
+            if self.frames_without_detection < self.max_frames_without_detection and self.last_valid_face is not None:
+                return self.last_valid_face
+            else:
+                return None
+        
+        self.frames_without_detection = 0
+        self.face_history.append(current_face)
+        
+        if len(self.face_history) > 0:
+            avg_x = int(np.mean([f[0] for f in self.face_history]))
+            avg_y = int(np.mean([f[1] for f in self.face_history]))
+            avg_w = int(np.mean([f[2] for f in self.face_history]))
+            avg_h = int(np.mean([f[3] for f in self.face_history]))
+            
+            smoothed_face = (avg_x, avg_y, avg_w, avg_h)
+            self.last_valid_face = smoothed_face
+            return smoothed_face
+        
+        return current_face
+
+    def detect_face_robust(self, gray_frame):
+        # (Fungsi ini sama persis dengan kode baru Anda)
+        """
+        Robust face detection with multiple methods and frame preprocessing
+        """
+        gray_eq = cv2.equalizeHist(gray_frame)
+        gray_blur = cv2.GaussianBlur(gray_eq, (5, 5), 0)
+        
+        faces = self.face_cascade.detectMultiScale(
+            gray_blur,
+            scaleFactor=1.05,
+            minNeighbors=4,
+            minSize=(60, 60),
+            flags=cv2.CASCADE_SCALE_IMAGE
+        )
+        
+        if len(faces) == 0:
+            faces = self.face_cascade_alt.detectMultiScale(
+                gray_blur,
+                scaleFactor=1.1,
+                minNeighbors=3,
+                minSize=(60, 60)
+            )
+        
+        if len(faces) > 0:
+            faces_sorted = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+            return faces_sorted[0] # Return (x, y, w, h)
+        
+        return None
+
+    # --- BARU: Ditambahkan dari kode LAMA (.yaml) ---
+    def get_cheek_contour_points(self, face_landmarks_cv2, is_left=True):
+        """
+        Mendapatkan titik-titik kontur pipi menggunakan 68 landmarks LBF (CV2).
+        """
+        if is_left:
+            # Pipi Kiri (indeks 68)
+            indices = [
+            1, 2, 3,        # Area tulang pipi atas kiri
+            31,         # Area dekat hidung dan mulut
+            39,             # Area tengah pipi
+            28              # Area dekat hidung (untuk batas atas)
+        ]
+        else:
+            # Pipi Kanan (indeks 68)
+            indices = [
+            15, 14, 13,     # Area tulang pipi atas kanan
+            35,         # Area dekat hidung dan mulut
+            42,             # Area tengah pipi
+            28              # Area dekat hidung (untuk batas atas)
+        ]
+
+        points = []
+        for idx in indices:
+            point = face_landmarks_cv2[idx]
+            points.append((int(point[0]), int(point[1]))) # (x, y)
+
+        return np.array(points, dtype=np.int32)
+
+    # --- BARU: Ditambahkan dari kode LAMA (.yaml) ---
+    def create_smooth_blush_mask(self, frame_shape, points, blur_radius):
+        """
+        Membuat mask blush yang smooth dengan convex hull (cocok untuk landmarks)
+        """
+        h, w = frame_shape[:2]
+        mask = np.zeros((h, w), dtype=np.float32)
+        
+        if len(points) < 3:
+            return mask
+        
+        # Buat convex hull dari points untuk area blush
+        hull = cv2.convexHull(points)
+        cv2.fillConvexPoly(mask, hull, 1.0)
+        
+        # Apply gaussian blur untuk smooth transition
+        mask = gaussian_filter(mask, sigma=blur_radius)
+        
+        # Normalize mask
+        if mask.max() > 0:
+            mask = mask / mask.max()
+        
+        return mask
+
+    def apply_blush(self, frame):
+        """
+        FUNGSI GABUNGAN:
+        1. Deteksi wajah stabil (Haar)
+        2. Deteksi landmark presisi (LBF)
+        3. Aplikasi blush
+        """
+        output_frame = frame.copy().astype(np.float32)
+        
+        # 1. Konversi ke grayscale (DARI KODE BARU)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # 2. Deteksi wajah (DARI KODE BARU)
+        current_face = self.detect_face_robust(gray)
+        
+        # 3. Smoothing wajah (DARI KODE BARU)
+        face_rect = self.smooth_face_detection(current_face)
+        
+        if face_rect is not None:
+            h, w, _ = frame.shape
+            
+            # --- 4. LOGIKA LBF (DARI KODE LAMA) DIMASUKKAN KE SINI ---
+            # LBF .fit() butuh daftar wajah, jadi kita bungkus
+            faces_list = np.array([face_rect]) 
+            
+            try:
+                ok, landmarks_list = self.landmark_detector.fit(gray, faces_list)
+            except cv2.error as e:
+                # Gagal fit, kembalikan frame asli
+                return frame
+            
+            if ok and landmarks_list is not None:
+                # Get current settings
+                with self.lock:
+                    color_rgb = self.blush_color_rgb
+                    intensity = self.blush_intensity
+                    blur = self.blush_blur
+                
+                color_bgr = (color_rgb[2], color_rgb[1], color_rgb[0])
+
+                # Proses landmark untuk wajah yang terdeteksi
+                for face_landmarks_cv2 in landmarks_list:
+                    current_face_points = face_landmarks_cv2[0]
+
+                    # 5. Dapatkan titik pipi (DARI KODE LAMA)
+                    left_cheek_points = self.get_cheek_contour_points(current_face_points, is_left=True)
+                    right_cheek_points = self.get_cheek_contour_points(current_face_points, is_left=False)
+                    
+                    # 6. Buat mask (DARI KODE LAMA)
+                    left_mask = self.create_smooth_blush_mask(
+                        (h, w), left_cheek_points, blur
+                    )
+                    right_mask = self.create_smooth_blush_mask(
+                        (h, w), right_cheek_points, blur
+                    )
+                    
+                    # 7. Blending (LOGIKA UMUM)
+                    combined_mask = np.maximum(left_mask, right_mask)
+                    combined_mask = combined_mask * intensity
+                    
+                    color_overlay = np.zeros_like(output_frame)
+                    color_overlay[:, :] = color_bgr
+                    
+                    for c in range(3):
+                        output_frame[:, :, c] = (
+                            output_frame[:, :, c] * (1 - combined_mask) +
+                            color_overlay[:, :, c] * combined_mask
+                        )
+            
+        return output_frame.astype(np.uint8)
+
+    # --- SISA FUNGSI (NETWORKING) SAMA PERSIS ---
 
     def listen_for_clients(self):
         """ Listens for incoming client messages """
@@ -103,7 +325,6 @@ class UDPWebcamServer:
                 command = data.decode('utf-8').strip()
                 
                 if command.startswith("COLOR:"):
-                    # Format: COLOR:R,G,B (e.g., COLOR:255,100,150)
                     try:
                         rgb_str = command.split(":")[1]
                         r, g, b = map(int, rgb_str.split(","))
@@ -116,7 +337,6 @@ class UDPWebcamServer:
                         self.control_socket.sendto(b"COLOR_ERROR", addr)
                 
                 elif command.startswith("INTENSITY:"):
-                    # Format: INTENSITY:0.25 (range 0.0-1.0)
                     try:
                         intensity = float(command.split(":")[1])
                         intensity = max(0.0, min(1.0, intensity))
@@ -129,7 +349,6 @@ class UDPWebcamServer:
                         self.control_socket.sendto(b"INTENSITY_ERROR", addr)
                 
                 elif command.startswith("BLUR:"):
-                    # Format: BLUR:15 (pixels)
                     try:
                         blur = int(command.split(":")[1])
                         blur = max(5, min(50, blur))
@@ -147,114 +366,6 @@ class UDPWebcamServer:
                 if self.running:
                     print(f"❌ Control listener error: {e}")
 
-    def get_cheek_contour_points(self, face_landmarks, w, h, is_left=True):
-        """
-        Mendapatkan titik-titik kontur pipi yang lebih presisi
-        """
-        if is_left:
-            # Pipi kiri - area blush yang lebih kecil (zygomatic region)
-            indices = [
-                116, 117, 118, 119, 100,  # Area tulang pipi atas
-                47, 126, 209,  # Area tengah pipi
-                50, 101, 205, 187, # Area bawah pipi (menghindari dagu)
-                # 207, 108, 69,  # Area bawah pipi (menghindari dagu)
-                # 104, 67, 105, 66, 107 # Tambahan untuk memperluas area bawah
-            ]
-        else:
-            # Pipi kanan - area blush yang lebih kecil (zygomatic region)
-            indices = [
-                345, 346, 347, 348, 329,  # Area tulang pipi atas
-                277, 355, 429,  # Area tengah pipi
-                280, 330, 425, 411, # Area bawah pipi (menghindari dagu)
-                # 427, 337, 299, # Area bawah pipi (menghindari dagu)
-                # 334, 297, 333, 296, 336 # Tambahan untuk memperluas area bawah
-            ]
-
-        points = []
-        for idx in indices:
-            if idx < len(face_landmarks.landmark):
-                lm = face_landmarks.landmark[idx]
-                points.append((int(lm.x * w), int(lm.y * h)))
-
-        return np.array(points, dtype=np.int32)
-
-    def create_smooth_blush_mask(self, frame_shape, points, blur_radius):
-        """
-        Membuat mask blush yang smooth dengan gradient natural
-        """
-        h, w = frame_shape[:2]
-        mask = np.zeros((h, w), dtype=np.float32)
-        
-        if len(points) < 3:
-            return mask
-        
-        # Buat convex hull dari points untuk area blush
-        hull = cv2.convexHull(points)
-        cv2.fillConvexPoly(mask, hull, 1.0)
-        
-        # Apply gaussian blur untuk smooth transition
-        mask = gaussian_filter(mask, sigma=blur_radius)
-        
-        # Normalize mask
-        if mask.max() > 0:
-            mask = mask / mask.max()
-        
-        return mask
-
-    def apply_blush(self, frame):
-        """
-        Aplikasi blush yang natural dengan deteksi multi-wajah
-        """
-        output_frame = frame.copy().astype(np.float32)
-        
-        # Konversi BGR ke RGB untuk Mediapipe
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        rgb_frame.flags.writeable = False
-        results = self.face_mesh.process(rgb_frame)
-        rgb_frame.flags.writeable = True
-
-        if results.multi_face_landmarks:
-            h, w, _ = frame.shape
-            
-            # Get current settings with thread safety
-            with self.lock:
-                color_rgb = self.blush_color_rgb
-                intensity = self.blush_intensity
-                blur = self.blush_blur
-            
-            # Convert RGB to BGR for OpenCV
-            color_bgr = (color_rgb[2], color_rgb[1], color_rgb[0])
-            
-            # Process each detected face
-            for face_idx, face_landmarks in enumerate(results.multi_face_landmarks):
-                
-                # Get cheek contour points
-                left_cheek_points = self.get_cheek_contour_points(face_landmarks, w, h, is_left=True)
-                right_cheek_points = self.get_cheek_contour_points(face_landmarks, w, h, is_left=False)
-                
-                # Create smooth masks for both cheeks
-                left_mask = self.create_smooth_blush_mask((h, w), left_cheek_points, blur)
-                right_mask = self.create_smooth_blush_mask((h, w), right_cheek_points, blur)
-                
-                # Combine masks
-                combined_mask = np.maximum(left_mask, right_mask)
-                
-                # Apply mask intensity
-                combined_mask = combined_mask * intensity
-                
-                # Create color overlay
-                color_overlay = np.zeros_like(output_frame)
-                color_overlay[:, :] = color_bgr
-                
-                # Blend dengan frame menggunakan mask
-                for c in range(3):
-                    output_frame[:, :, c] = (
-                        output_frame[:, :, c] * (1 - combined_mask) +
-                        color_overlay[:, :, c] * combined_mask
-                    )
-        
-        return output_frame.astype(np.uint8)
-
     def send_frames(self):
         """ Captures frames, applies blush, encodes, packets, and sends them """
         print("🚀 Starting frame broadcast...")
@@ -268,10 +379,10 @@ class UDPWebcamServer:
                 time.sleep(0.01)
                 continue
 
-            # Aplikasikan Blush On
+            # Apply Blush (menggunakan fungsi gabungan)
             frame_with_blush = self.apply_blush(frame)
 
-            # Encode frame ke JPEG
+            # Encode to JPEG
             encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
             result, encoded_frame = cv2.imencode('.jpg', frame_with_blush, encode_param)
 
@@ -327,7 +438,6 @@ class UDPWebcamServer:
         self.server_socket.bind((self.host, self.port))
         self.server_socket.settimeout(0.5)
 
-        # Setup control socket
         print(f"🎮 Starting control socket on {self.host}:{self.control_port}...")
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.control_socket.bind((self.host, self.control_port))
@@ -341,14 +451,12 @@ class UDPWebcamServer:
         self.running = True
         self.sequence_number = 0
 
-        # Start listener threads
         self.listener_thread = threading.Thread(target=self.listen_for_clients, daemon=True)
         self.listener_thread.start()
 
         self.control_thread = threading.Thread(target=self.listen_for_controls, daemon=True)
         self.control_thread.start()
 
-        # Start frame sending
         try:
             self.send_frames()
         except KeyboardInterrupt:
@@ -374,8 +482,15 @@ class UDPWebcamServer:
         print("✅ Server stopped")
 
 if __name__ == "__main__":
-    print("=== UDP Webcam Server with Enhanced Blush On ===")
-    print("📝 Install dependencies: pip install opencv-python mediapipe scipy numpy")
+    print("=== Hybrid CV2 Blush Server (Stable Haar + Precise LBF) ===")
+    # PENTING: Anda perlu opencv-python-contrib untuk cv2.face
+    print("📝 Dependencies: pip install opencv-python-contrib scipy numpy")
+    print("⚠️  Pastikan 'lbfmodel.yaml' (versi 54MB) ada di folder!")
+    print("✨ Features:")
+    print("    - Temporal smoothing for stable tracking (dari kode baru)")
+    print("    - Multi-cascade face detection (dari kode baru)")
+    print("    - LBF Landmark-based cheek positioning (dari kode lama)")
+    
     server = UDPWebcamServer()
     try:
         server.start_server()
