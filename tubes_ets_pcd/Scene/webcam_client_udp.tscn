@@ -1,6 +1,6 @@
 [gd_scene load_steps=9 format=3 uid="uid://dnvf3rmq6ihk6"]
 
-[ext_resource type="Script" path="res://script/webcam_client_udp.gd" id="1_d6xx3"]
+[ext_resource type="Script" path="res://Script/webcam_client_udp.gd" id="1_0jljn"]
 [ext_resource type="FontFile" uid="uid://droaxvl782oum" path="res://assets/font/Round9x13.ttf" id="2_72js3"]
 [ext_resource type="Script" path="res://script/button.gd" id="2_goibe"]
 [ext_resource type="Texture2D" uid="uid://bxmprbp8r7cth" path="res://assets/img/Try-On (1).png" id="2_s20pd"]
@@ -28,7 +28,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_d6xx3")
+script = ExtResource("1_0jljn")
 
 [node name="Background" type="Panel" parent="."]
 layout_mode = 1
@@ -57,11 +57,16 @@ vertical_alignment = 1
 
 [node name="ServerInfo" type="Label" parent="."]
 modulate = Color(0.8, 0.8, 0.8, 1)
-layout_mode = 0
-offset_left = 459.0
-offset_top = 59.0
-offset_right = 709.0
-offset_bottom = 84.0
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.091
+anchor_right = 0.5
+anchor_bottom = 0.091
+offset_left = -117.0
+offset_top = 0.0319977
+offset_right = 133.0
+offset_bottom = 25.032
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_fonts/font = ExtResource("2_72js3")
 text = "Server: 127.0.0.1:8888 (UDP)"
@@ -77,6 +82,20 @@ offset_bottom = 108.0
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_fonts/font = ExtResource("2_72js3")
 text = "Status: Disconnected"
+
+[node name="IntensitySlider" type="HSlider" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = 117.0
+offset_top = -109.0
+offset_right = 222.0
+offset_bottom = -49.0
+size_flags_horizontal = 3
+size_flags_vertical = 1
 
 [node name="VideoContainer" type="Panel" parent="."]
 layout_mode = 0
@@ -120,7 +139,7 @@ anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -250.0
 offset_top = -109.0
-offset_right = 250.0
+offset_right = 57.0
 offset_bottom = -49.0
 grow_horizontal = 2
 grow_vertical = 0
@@ -166,22 +185,17 @@ theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 20
 text = "Intensitas"
 
-[node name="IntensitySlider" type="HSlider" parent="ControlPanel"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 1
-
 [node name="ControlPanel2" type="HBoxContainer" parent="."]
 layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = 260.0
-offset_top = -630.0
-offset_right = 560.0
-offset_bottom = -570.0
+anchors_preset = -1
+anchor_left = 0.833
+anchor_top = 0.12
+anchor_right = 0.833
+anchor_bottom = 0.12
+offset_left = -123.616
+offset_top = -59.76
+offset_right = 176.384
+offset_bottom = 0.239998
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_constants/separation = 15
@@ -207,7 +221,7 @@ theme = SubResource("Theme_def2p")
 theme_override_styles/hover = ExtResource("6_u3kmb")
 theme_override_styles/pressed = ExtResource("6_u3kmb")
 theme_override_styles/normal = ExtResource("6_u3kmb")
-text = "Quit"
+text = "Back"
 
 [node name="InfoPanel" type="VBoxContainer" parent="."]
 layout_mode = 0
@@ -232,28 +246,36 @@ theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Rate: -- KB/s"
 
 [node name="PerformanceInfo" type="VBoxContainer" parent="."]
-layout_mode = 0
-offset_left = 707.0
-offset_top = 127.0
-offset_right = 907.0
-offset_bottom = 231.0
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.786
+anchor_top = 0.304
+anchor_right = 0.786
+anchor_bottom = 0.304
+offset_left = -0.472046
+offset_top = -31.992
+offset_right = 205.528
+offset_bottom = 72.008
 
 [node name="ProtocolLabel" type="Label" parent="PerformanceInfo"]
-modulate = Color(0.7, 1, 0.7, 1)
+modulate = Color(4.32214e-05, 0.89477, 0.224248, 1)
 layout_mode = 2
 text = "Protocol: UDP"
 
 [node name="AdvantageLabel1" type="Label" parent="PerformanceInfo"]
 modulate = Color(0.8, 0.8, 0.8, 1)
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "✓ Lower Latency"
 
 [node name="AdvantageLabel2" type="Label" parent="PerformanceInfo"]
 modulate = Color(0.8, 0.8, 0.8, 1)
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "✓ No Handshake"
 
 [node name="AdvantageLabel3" type="Label" parent="PerformanceInfo"]
 modulate = Color(0.8, 0.8, 0.8, 1)
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "✓ Real-time Streaming"

@@ -15,6 +15,11 @@ run/main_scene="res://scene/menu_utama.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+Sound="*res://Script/Sound.gd"
+BackSound="*res://Script/BackSound.gd"
+
 [dotnet]
 
 project/assembly_name="Tubes_ETS_PCD"

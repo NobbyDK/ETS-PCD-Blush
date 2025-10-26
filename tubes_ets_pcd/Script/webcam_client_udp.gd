@@ -3,7 +3,7 @@ extends Control
 # --- Blush Shade Data ---
 const BLUSH_SHADES = {
 	"01 Pink Fantasist": "222,99,159",
-	"02 Iredescent Pink": "228,146,168",
+	"02 Iredescent Pink": "228,146,168", 
 	"03 Promiscious Peach": "224,135,116",
 	"04 Royal Espresso": "196,109,92",
 	"05 Brown Strada": "198,146,117",
@@ -23,8 +23,8 @@ const BLUSH_SHADES = {
 @onready var fps_label: Label = $InfoPanel/FPSLabel
 @onready var resolution_label: Label = $InfoPanel/ResolutionLabel
 @onready var data_rate_label: Label = $InfoPanel/DataRateLabel
-@onready var shade_option_button: OptionButton = $ControlPanel/ShadeOptionButton # NEW
-@onready var intensity_slider: HSlider = $ControlPanel/IntensitySlider # NEW
+@onready var shade_option_button: OptionButton = $ControlPanel/ShadeOptionButton
+@onready var intensity_slider: HSlider = $IntensitySlider # Perbaikan: langsung refer ke node
 @onready var intensity_label: Label = $ControlPanel/IntensityLabel
 
 # --- Connection and State Variables ---
@@ -57,37 +57,71 @@ func _ready():
 	# Inisialisasi UDP client
 	udp_client = PacketPeerUDP.new()
 	udp_control_client = PacketPeerUDP.new() # Inisialisasi control client
-	
+
 	# Connect button signals
 	connect_button.pressed.connect(_on_connect_button_pressed)
 	quit_button.pressed.connect(_on_quit_button_pressed)
-	
+
 	# NEW: Connect OptionButton signal and populate shades
 	if is_instance_valid(shade_option_button):
 		shade_option_button.item_selected.connect(_on_shade_option_button_item_selected)
 		_populate_shade_options()
-	
+
+	# Connect Intensity Slider signal - PERBAIKAN PENTING
+	if is_instance_valid(intensity_slider):
+		intensity_slider.value_changed.connect(_on_intensity_slider_value_changed)
+		intensity_slider.max_value = 100
+		intensity_slider.min_value = 0
+		intensity_slider.value = 25
+		_update_intensity_label(intensity_slider.value)
+	else:
+		print("❌ Intensity Slider node not found!")
+
 	# Update status
 	update_status("Ready to connect")
 	update_info_display()
-	
+
 	# Show no signal initially
 	no_signal_label.visible = true
-	
-	# Debug info
+
 	print("🎮 Godot UDP client initialized")
 	print("Target server (Video): ", server_host, ":", server_port)
 	print("Target server (Control): ", server_host, ":", control_port)
+
+func _on_intensity_slider_value_changed(value: float):
+	"""Handler ketika nilai slider intensitas berubah"""
+	# Update label
+	_update_intensity_label(value)
+	
+	if not is_connected:
+		return
+	
+	if intensity_slider.max_value == 0:
+		printerr("Intensity Slider max_value is zero!")
+		return
+	
+	var normalized_intensity = value / intensity_slider.max_value
+	var command = "INTENSITY:" + str(normalized_intensity)
+	send_control_command(command)
+	print("📤 Sent control command: ", command)
+
+func _update_intensity_label(value: float):
+	"""Update label yang menunjukkan nilai intensitas"""
+	if is_instance_valid(intensity_label):
+		intensity_label.text = "Intensity: %d%%" % int(value)
+	else:
+		print("❌ Intensity Label node not found!")
 
 func _populate_shade_options():
 	"""Memasukkan semua shade blush ke OptionButton"""
 	for shade_name in BLUSH_SHADES.keys():
 		shade_option_button.add_item(shade_name)
-	
+
 	# Pilih shade default (Passion Pink)
 	shade_option_button.select(shade_option_button.get_item_count() - 1)
 
 func _on_quit_button_pressed():
+	Sound.play_click()
 	get_tree().change_scene_to_file("res://scene/menu_utama.tscn")
 
 func _process(delta):
@@ -100,23 +134,24 @@ func _on_connect_button_pressed():
 	if is_connected:
 		disconnect_from_server()
 	else:
+		Sound.play_click()
 		connect_to_server()
 
 func connect_to_server():
 	if is_connected:
 		print("⚠️  Already connected!")
 		return
-		
+
 	print("🔄 Starting UDP connection...")
 	update_status("Connecting...")
-	
+
 	# 1. Setup UDP Video Connection (Logic asli tidak diubah)
 	var error = udp_client.connect_to_host(server_host, server_port)
 	if error != OK:
 		update_status("Failed to setup UDP Video - Error: " + str(error))
 		print("❌ UDP Video setup failed: ", error)
 		return
-	
+
 	# 2. Kirim registrasi ke server (Logic asli tidak diubah)
 	var registration_message = "REGISTER".to_utf8_buffer()
 	var send_result = udp_client.put_packet(registration_message)
@@ -124,51 +159,58 @@ func connect_to_server():
 		update_status("Failed to register - Error: " + str(send_result))
 		print("❌ Registration failed: ", send_result)
 		return
-	
+
 	print("📤 Registration sent, waiting for confirmation...")
-	
+
 	# 3. Tunggu konfirmasi dari server (Logic asli tidak diubah)
 	var timeout = 0
 	var max_timeout = 180  # 3 detik pada 60fps
 	var confirmed = false
-	
+
 	while timeout < max_timeout and not confirmed:
 		await get_tree().process_frame
 		timeout += 1
-		
+
 		if udp_client.get_available_packet_count() > 0:
 			var packet = udp_client.get_packet()
 			var message = packet.get_string_from_utf8()
-			
+
 			if message == "REGISTERED":
 				confirmed = true
 				print("✅ Registration confirmed!")
 			elif message == "SERVER_SHUTDOWN":
 				update_status("Server is shutting down")
 				return
-	
+
 	if confirmed:
 		is_connected = true
 		update_status("Connected - Receiving video...")
 		connect_button.text = "Disconnect"
 		print("🎥 Ready to receive video streams!")
-		
+
 		# Reset statistics (Logic asli tidak diubah)
 		packets_received = 0
 		frames_completed = 0
 		frames_dropped = 0
 		frame_buffers.clear()
-		
+
 		# 4. Setup Control UDP Connection (Perubahan minimal)
 		var control_error = udp_control_client.connect_to_host(server_host, control_port)
 		if control_error != OK:
 			print("❌ Control UDP setup failed: ", control_error)
 		else:
-			print("🎮 Control UDP client initialized on port ", control_port)
-			# 5. Kirim shade default saat koneksi berhasil
-			var default_shade_name = shade_option_button.get_item_text(shade_option_button.get_selected_id())
-			var default_rgb = BLUSH_SHADES[default_shade_name]
-			send_control_command("COLOR:" + default_rgb)
+			print("🎮 Control UDP client ready to send on port ", control_port)
+
+		# 5. Kirim shade default DAN intensitas default saat koneksi berhasil
+		var default_shade_name = shade_option_button.get_item_text(shade_option_button.get_selected_id())
+		var default_rgb = BLUSH_SHADES[default_shade_name]
+		send_control_command("COLOR:" + default_rgb)
+
+		# Kirim intensitas default
+		var initial_intensity = intensity_slider.value / intensity_slider.max_value
+		send_control_command("INTENSITY:" + str(initial_intensity))
+		print("📤 Sent initial Intensity: ", initial_intensity)
+
 	else:
 		update_status("Registration timeout")
 		print("❌ Registration timeout")
@@ -176,61 +218,62 @@ func connect_to_server():
 
 func disconnect_from_server():
 	print("🔌 Disconnecting from server...")
-	
+
 	if is_connected:
 		# Kirim unregister message
 		var unregister_message = "UNREGISTER".to_utf8_buffer()
 		udp_client.put_packet(unregister_message)
-	
-	is_connected = false
-	udp_client.close()
-	if is_instance_valid(udp_control_client):
-		udp_control_client.close() # Close control client
-	frame_buffers.clear()
-	
-	update_status("Disconnected")
-	connect_button.text = "Connect"
-	
-	# Clear texture and show no signal
-	texture_rect.texture = null
-	no_signal_label.visible = true
-	
-	# Reset performance metrics
-	frame_count = 0
-	bytes_received = 0
-	current_fps = 0.0
-	current_data_rate = 0.0
-	update_info_display()
+
+		is_connected = false
+		udp_client.close()
+		if is_instance_valid(udp_control_client):
+			udp_control_client.close() # Close control client
+		frame_buffers.clear()
+
+		update_status("Disconnected")
+		connect_button.text = "Connect"
+
+		# Clear texture and show no signal
+		texture_rect.texture = null
+		no_signal_label.visible = true
+
+		# Reset performance metrics
+		frame_count = 0
+		bytes_received = 0
+		current_fps = 0.0
+		current_data_rate = 0.0
+		update_info_display()
 
 func _on_shade_option_button_item_selected(index: int):
+	Sound.play_click()
 	"""Handler ketika user memilih shade blush baru"""
 	if not is_connected:
 		print("⚠️ Cannot change shade, not connected to server.")
 		return
-		
+
 	var selected_shade_name = shade_option_button.get_item_text(index)
 	var rgb_value = BLUSH_SHADES[selected_shade_name]
-	
+
 	var command = "COLOR:" + rgb_value
 	send_control_command(command)
 	print("📤 Sent control command: ", command)
-	
+
 func send_control_command(command: String):
 	"""Mengirim command kontrol via UDP port 8889"""
 	if not is_connected:
 		return
-	
+
 	# PERBAIKAN: Hanya coba kirim paket, status koneksi UDP tidak perlu di cek ulang
 	# karena PacketPeerUDP tidak memiliki status seperti TCP.
 	var message = command.to_utf8_buffer()
 	var send_result = udp_control_client.put_packet(message)
-	
+
 	if send_result != OK:
 		print("❌ Failed to send control command: ", send_result)
 
 func receive_packets():
 	var packet_count = udp_client.get_available_packet_count()
-	
+
 	for i in range(packet_count):
 		var packet = udp_client.get_packet()
 		if packet.size() >= 12:  # Minimal header size
@@ -242,21 +285,21 @@ func process_packet(packet: PackedByteArray):
 	# Parse header: [sequence_number:4][total_packets:4][packet_index:4][data...]
 	if packet.size() < 12:
 		return
-	
+
 	var sequence_number = bytes_to_int(packet.slice(0, 4))
 	var total_packets = bytes_to_int(packet.slice(4, 8))
 	var packet_index = bytes_to_int(packet.slice(8, 12))
 	var packet_data = packet.slice(12)
-	
+
 	# Validasi data
 	if total_packets <= 0 or packet_index >= total_packets or sequence_number <= 0:
 		print("⚠️  Invalid packet header: seq=", sequence_number, " total=", total_packets, " index=", packet_index)
 		return
-	
+
 	# Skip frame lama (lebih dari 2 frame di belakang)
 	if sequence_number < last_completed_sequence - 2:
 		return
-	
+
 	# Inisialisasi buffer untuk frame baru
 	if sequence_number not in frame_buffers:
 		frame_buffers[sequence_number] = {
@@ -265,25 +308,25 @@ func process_packet(packet: PackedByteArray):
 			"data_parts": {},
 			"timestamp": Time.get_ticks_msec() / 1000.0
 		}
-	
+
 	var frame_buffer = frame_buffers[sequence_number]
-	
+
 	# Tambahkan packet ke frame buffer (jika belum ada)
 	if packet_index not in frame_buffer.data_parts:
 		frame_buffer.data_parts[packet_index] = packet_data
 		frame_buffer.received_packets += 1
-		
-		# Cek apakah frame sudah lengkap
-		if frame_buffer.received_packets == frame_buffer.total_packets:
-			assemble_and_display_frame(sequence_number)
+
+	# Cek apakah frame sudah lengkap
+	if frame_buffer.received_packets == frame_buffer.total_packets:
+		assemble_and_display_frame(sequence_number)
 
 func assemble_and_display_frame(sequence_number: int):
 	if sequence_number not in frame_buffers:
 		return
-	
+
 	var frame_buffer = frame_buffers[sequence_number]
 	var frame_data = PackedByteArray()
-	
+
 	# Gabungkan semua packet sesuai urutan
 	for i in range(frame_buffer.total_packets):
 		if i in frame_buffer.data_parts:
@@ -293,15 +336,15 @@ func assemble_and_display_frame(sequence_number: int):
 			frames_dropped += 1
 			frame_buffers.erase(sequence_number)
 			return
-	
+
 	# Hapus dari buffer
 	frame_buffers.erase(sequence_number)
 	last_completed_sequence = sequence_number
 	frames_completed += 1
-	
+
 	# Display frame
 	display_frame(frame_data)
-	
+
 	# Debug info setiap 30 frame
 	if frames_completed % 30 == 0:
 		var drop_rate = float(frames_dropped) / float(frames_completed + frames_dropped) * 100.0
@@ -310,42 +353,43 @@ func assemble_and_display_frame(sequence_number: int):
 func cleanup_old_frames():
 	var current_time = Time.get_ticks_msec() / 1000.0
 	var sequences_to_remove = []
-	
+
 	for seq_num in frame_buffers:
 		var frame_buffer = frame_buffers[seq_num]
 		if current_time - frame_buffer.timestamp > frame_timeout:
 			sequences_to_remove.append(seq_num)
 			frames_dropped += 1
-	
+
 	for seq_num in sequences_to_remove:
 		frame_buffers.erase(seq_num)
-		if sequences_to_remove.size() > 0:
-			print("🗑️  Cleaned up ", sequences_to_remove.size(), " timed out frames")
+
+	if sequences_to_remove.size() > 0:
+		print("🗑️  Cleaned up ", sequences_to_remove.size(), " timed out frames")
 
 func bytes_to_int(bytes: PackedByteArray) -> int:
 	# Convert 4 bytes ke integer (big-endian)
 	if bytes.size() != 4:
 		return 0
-	
+
 	return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]
 
 func display_frame(frame_data: PackedByteArray):
 	# Buat Image dari data JPEG
 	var image = Image.new()
 	var error = image.load_jpg_from_buffer(frame_data)
-	
+
 	if error == OK:
 		# Buat ImageTexture dari Image
 		var texture = ImageTexture.new()
 		texture.set_image(image)
-		
+
 		# Tampilkan di TextureRect
 		texture_rect.texture = texture
 		no_signal_label.visible = false
-		
+
 		# Update resolution info
 		resolution_label.text = "Resolution: %dx%d" % [image.get_width(), image.get_height()]
-		
+
 		# Update frame count
 		frame_count += 1
 	else:
@@ -358,21 +402,21 @@ func update_performance_metrics(delta: float):
 		current_fps = frame_count / last_fps_time
 		frame_count = 0
 		last_fps_time = 0.0
-	
+
 	# Update data rate calculation
 	last_data_rate_time += delta
 	if last_data_rate_time >= 1.0:
 		current_data_rate = bytes_received / last_data_rate_time / 1024.0  # KB/s
 		bytes_received = 0
 		last_data_rate_time = 0.0
-		
+
 	update_info_display()
 
 func update_info_display():
 	if is_connected:
 		fps_label.text = "FPS: %.1f" % current_fps
 		data_rate_label.text = "Rate: %.1f KB/s" % current_data_rate
-		
+
 		# Tambahkan statistik packet
 		if frames_completed + frames_dropped > 0:
 			var drop_rate = float(frames_dropped) / float(frames_completed + frames_dropped) * 100.0
