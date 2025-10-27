@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://b6nsqjpgmsqv"]
+[gd_scene load_steps=11 format=3 uid="uid://b6nsqjpgmsqv"]
 
 [ext_resource type="FontFile" uid="uid://cxyob2lbikg4i" path="res://assets/button/font.tres" id="1_eksng"]
 [ext_resource type="FontFile" uid="uid://droaxvl782oum" path="res://assets/font/Round9x13.ttf" id="1_l5ain"]
@@ -8,6 +8,7 @@
 [ext_resource type="StyleBox" uid="uid://v18js4yllipg" path="res://assets/button/about.tres" id="5_uxmy3"]
 [ext_resource type="StyleBox" uid="uid://d4m8osio2w7ji" path="res://assets/button/tutor.tres" id="7_vttxw"]
 [ext_resource type="StyleBox" uid="uid://c5eoxetuyjtmj" path="res://assets/button/kredit.tres" id="8_e420u"]
+[ext_resource type="StyleBox" uid="uid://he6heko6p8lm" path="res://assets/button/music.tres" id="9_gvds6"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_mnokf"]
 texture = ExtResource("2_sujrv")
@@ -57,6 +58,7 @@ size_flags_horizontal = 5
 size_flags_vertical = 7
 theme_override_fonts/font = ExtResource("1_eksng")
 theme_override_font_sizes/font_size = 40
+theme_override_styles/focus = ExtResource("2_1n7vv")
 theme_override_styles/hover = ExtResource("2_1n7vv")
 theme_override_styles/pressed = ExtResource("2_1n7vv")
 theme_override_styles/normal = ExtResource("2_1n7vv")
@@ -68,6 +70,7 @@ size_flags_horizontal = 5
 size_flags_vertical = 7
 theme_override_fonts/font = ExtResource("1_eksng")
 theme_override_font_sizes/font_size = 40
+theme_override_styles/focus = ExtResource("2_1n7vv")
 theme_override_styles/hover = ExtResource("2_1n7vv")
 theme_override_styles/pressed = ExtResource("2_1n7vv")
 theme_override_styles/normal = ExtResource("2_1n7vv")
@@ -78,16 +81,17 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -182.0
-offset_top = 48.0
-offset_right = -22.0
-offset_bottom = 100.0
+offset_left = -238.0
+offset_top = 23.0
+offset_right = -78.0
+offset_bottom = 75.0
 grow_horizontal = 0
 theme_override_constants/separation = 10
 
 [node name="about" type="Button" parent="HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/focus = ExtResource("5_uxmy3")
 theme_override_styles/hover = ExtResource("5_uxmy3")
 theme_override_styles/pressed = ExtResource("5_uxmy3")
 theme_override_styles/normal = ExtResource("5_uxmy3")
@@ -97,6 +101,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 1.25
 theme_override_fonts/font = ExtResource("1_l5ain")
+theme_override_styles/focus = ExtResource("7_vttxw")
 theme_override_styles/hover = ExtResource("7_vttxw")
 theme_override_styles/pressed = ExtResource("7_vttxw")
 theme_override_styles/normal = ExtResource("7_vttxw")
@@ -104,6 +109,7 @@ theme_override_styles/normal = ExtResource("7_vttxw")
 [node name="kredit" type="Button" parent="HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/focus = ExtResource("8_e420u")
 theme_override_styles/hover = ExtResource("8_e420u")
 theme_override_styles/pressed = ExtResource("8_e420u")
 theme_override_styles/normal = ExtResource("8_e420u")
@@ -113,12 +119,16 @@ layout_mode = 1
 anchors_preset = -1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -242.0
-offset_top = 56.0
-offset_right = -202.0
-offset_bottom = 91.0
+offset_left = -64.0
+offset_top = 29.0
+offset_right = -24.0
+offset_bottom = 69.0
 grow_horizontal = 0
 grow_vertical = 2
+theme_override_styles/focus = ExtResource("9_gvds6")
+theme_override_styles/hover = ExtResource("9_gvds6")
+theme_override_styles/pressed = ExtResource("9_gvds6")
+theme_override_styles/normal = ExtResource("9_gvds6")
 
 [connection signal="pressed" from="VBoxContainer/start" to="." method="_on_start_pressed"]
 [connection signal="pressed" from="VBoxContainer/exit" to="." method="_on_BtnExit_pressed"]
