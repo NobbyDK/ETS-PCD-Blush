@@ -15,6 +15,7 @@ import math
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from collections import deque
+import joblib
 
 class UDPWebcamServer:
     def __init__(self, host='127.0.0.1', port=8888, control_port=8889):
@@ -42,13 +43,18 @@ class UDPWebcamServer:
         print("🔄 Loading OpenCV Haar Cascade classifiers...")
         
         try:
-            # Load multiple cascades for better detection
-            self.face_cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            )
-            self.face_cascade_alt = cv2.CascadeClassifier(
-                cv2.data.haarcascades + 'haarcascade_frontalface_alt2.xml'
-            )
+            # # Load multiple cascades for better detection
+            # self.face_cascade = cv2.CascadeClassifier(
+            #     cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            # )
+            # self.face_cascade_alt = cv2.CascadeClassifier(
+            #     cv2.data.haarcascades + 'haarcascade_frontalface_alt2.xml'
+            # )
+            print("🔄 Loading custom face detector model (.pkl)...")
+            self.face_detector = joblib.load("my_face_detector.pkl")  
+            self.hog = cv2.HOGDescriptor()
+            print("✅ Custom face detector loaded successfully!")
+
             
             print("✅ OpenCV face detectors initialized successfully")
             
@@ -129,36 +135,60 @@ class UDPWebcamServer:
         
         return current_face
 
-    def detect_face_robust(self, gray_frame):
-        """
-        Robust face detection with multiple methods - RETURNS ALL FACES
-        """
-        gray_eq = cv2.equalizeHist(gray_frame)
-        gray_blur = cv2.GaussianBlur(gray_eq, (5, 5), 0)
+    # def detect_face_robust(self, gray_frame):
+    #     """
+    #     Robust face detection with multiple methods - RETURNS ALL FACES
+    #     """
+    #     gray_eq = cv2.equalizeHist(gray_frame)
+    #     gray_blur = cv2.GaussianBlur(gray_eq, (5, 5), 0)
         
-        faces = self.face_cascade.detectMultiScale(
-            gray_blur,
-            scaleFactor=1.05,
-            minNeighbors=4,
-            minSize=(60, 60),
-            flags=cv2.CASCADE_SCALE_IMAGE
-        )
+    #     faces = self.face_cascade.detectMultiScale(
+    #         gray_blur,
+    #         scaleFactor=1.05,
+    #         minNeighbors=4,
+    #         minSize=(60, 60),
+    #         flags=cv2.CASCADE_SCALE_IMAGE
+    #     )
         
-        if len(faces) == 0:
-            faces = self.face_cascade_alt.detectMultiScale(
-                gray_blur,
-                scaleFactor=1.1,
-                minNeighbors=3,
-                minSize=(60, 60)
-            )
+    #     if len(faces) == 0:
+    #         faces = self.face_cascade_alt.detectMultiScale(
+    #             gray_blur,
+    #             scaleFactor=1.1,
+    #             minNeighbors=3,
+    #             minSize=(60, 60)
+    #         )
         
-        if len(faces) > 0:
-            # Sort by size (largest first) but return ALL faces
-            faces_sorted = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
-            return faces_sorted  # Return list of all faces
+    #     if len(faces) > 0:
+    #         # Sort by size (largest first) but return ALL faces
+    #         faces_sorted = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+    #         return faces_sorted  # Return list of all faces
         
-        return None
+    #     return None
     
+    def detect_face_robust(self, gray_frame):
+        h, w = gray_frame.shape
+        win_size = (64, 128)
+        step = 8
+        faces = []
+
+        for y in range(0, h - win_size[1], step):
+            for x in range(0, w - win_size[0], step):
+                window = gray_frame[y:y + win_size[1], x:x + win_size[0]]
+                hog_desc = self.hog.compute(window).flatten()
+
+                pred = self.face_detector.predict([hog_desc])
+
+                if pred == 1:  # Wajah
+                    faces.append((x, y, win_size[0], win_size[1]))
+
+        if len(faces) > 0:
+            # Pilih wajah terbesar (umumnya wajah utama)
+            faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+            return faces
+
+        return None
+
+
     # --- (.yaml) ---
     def get_cheek_contour_points(self, face_landmarks_cv2, is_left=True):
         """
